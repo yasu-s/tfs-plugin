@@ -24,9 +24,9 @@ public class DetailedHistoryCommand extends AbstractCommand implements Parseable
     // Setting this system property will skip the date chek in parsing that makes
     // sure that a change set is within the date range. See CC-735 reference.
     public static final String IGNORE_DATE_CHECK_ON_CHANGE_SET = "tfs.history.skipdatecheck";
-    
+
     private static final String CHANGESET_SEPERATOR = "------------";
-    
+
     /**
      * The magic regex to identify the key data elements within the
      * changeset
@@ -40,9 +40,9 @@ public class DetailedHistoryCommand extends AbstractCommand implements Parseable
      * and filename)
      */
     private static final Pattern PATTERN_ITEM = Pattern.compile("\\s*([^$]+) (\\$/.*)");
-    
 
-    /** Names of field in the output from the TFS tool. This was added because the tool 
+
+    /** Names of field in the output from the TFS tool. This was added because the tool
      * will return locale dependent field names.
      */
     private static final int FIELD_USER = 0;
@@ -54,7 +54,8 @@ public class DetailedHistoryCommand extends AbstractCommand implements Parseable
     //private static final int FIELD_CHECKEIN_NOTES = 6;
     private static final String[][] LANG_FIELD_NAMES = {
                 {"User", "Changeset", "Date", "Items", "Comment", "Checked in by", "Check-in Notes"}, // EN
-                {"Benutzer", "Changeset", "Datum", "Elemente", "Kommentar", "Checked in by", "Eincheckhinweise"} // DE
+                {"Benutzer", "Changeset", "Datum", "Elemente", "Kommentar", "Checked in by", "Eincheckhinweise"}, // DE
+                {"ユーザー", "変更セット", "日付", "項目", "コメント", "Checked in by", "Check-in Notes"}
             };
 
     private final String projectPath;
@@ -64,9 +65,9 @@ public class DetailedHistoryCommand extends AbstractCommand implements Parseable
     private final Calendar toTimestamp;
 
     private final DateParser dateParser;
-    
+
     private final boolean skipDateCheckInParsing;
-    
+
     public DetailedHistoryCommand(ServerConfigurationProvider configurationProvider, String projectPath, Calendar fromTimestamp, Calendar toTimestamp,
             DateParser dateParser) {
         super(configurationProvider);
@@ -81,34 +82,34 @@ public class DetailedHistoryCommand extends AbstractCommand implements Parseable
         this.toTimestamp.add(Calendar.SECOND, 1);
     }
 
-    public DetailedHistoryCommand(ServerConfigurationProvider provider,  
+    public DetailedHistoryCommand(ServerConfigurationProvider provider,
             String projectPath, Calendar fromTimestamp, Calendar toTimestamp) {
         this(provider, projectPath, fromTimestamp, toTimestamp, new DateParser());
     }
 
     public MaskedArgumentListBuilder getArguments() {
-        MaskedArgumentListBuilder arguments = new MaskedArgumentListBuilder();        
+        MaskedArgumentListBuilder arguments = new MaskedArgumentListBuilder();
         arguments.add("history");
         arguments.add(projectPath);
         arguments.add("-noprompt");
-        arguments.add(String.format("-version:D%s~D%s", 
-                DateUtil.TFS_DATETIME_FORMATTER.get().format(fromTimestamp.getTime()), 
+        arguments.add(String.format("-version:D%s~D%s",
+                DateUtil.TFS_DATETIME_FORMATTER.get().format(fromTimestamp.getTime()),
                 DateUtil.TFS_DATETIME_FORMATTER.get().format(toTimestamp.getTime())));
         arguments.add("-recursive");
-        arguments.add("-format:detailed");        
+        arguments.add("-format:detailed");
         addServerArgument(arguments);
         addLoginArgument(arguments);
         return arguments;
     }
-    
+
     public List<ChangeSet> parse(Reader reader) throws IOException, ParseException {
         Date lastBuildDate = fromTimestamp.getTime();
         ArrayList<ChangeSet> list = new ArrayList<ChangeSet>();
-        
+
         ChangeSetStringReader iterator = new ChangeSetStringReader(new BufferedReader(reader));
-        String changeSetString = iterator.readChangeSet(); 
-        while (changeSetString != null) {
-        	
+        String changeSetString = iterator.readChangeSet();
+        while (changeSetString != null && changeSetString.trim().length() > 0) {
+
         	ChangeSet changeSet = parseChangeSetString(changeSetString);
         	// If some tf tool outputs the key words in non english we will use the old fashion way
         	// using the complicated regex
@@ -120,7 +121,7 @@ public class DetailedHistoryCommand extends AbstractCommand implements Parseable
                 // We should always find at least one item. If we don't
                 // then this will be because we have not parsed correctly.
                 throw new ParseException("Parse error. Unable to find an item within "
-                        + "a changeset.  Please report this as a bug.  Changeset" 
+                        + "a changeset.  Please report this as a bug.  Changeset"
                         + "data = \"\n" + changeSetString + "\n\".",
                         0);
             }
@@ -147,9 +148,10 @@ public class DetailedHistoryCommand extends AbstractCommand implements Parseable
     private ChangeSet parseChangeSetString(String changeSetString) throws ParseException, IOException {
         KeyValueTextReader reader = new KeyValueTextReader();
         Map<String, String> map = reader.parse(changeSetString);
+        if (map == null) return null;
         for (String[] fieldNames : LANG_FIELD_NAMES) {
-            if (map.containsKey(fieldNames[FIELD_USER]) 
-                    && map.containsKey(fieldNames[FIELD_CHANGESET]) 
+            if (map.containsKey(fieldNames[FIELD_USER])
+                    && map.containsKey(fieldNames[FIELD_CHANGESET])
                     && map.containsKey(fieldNames[FIELD_DATE])
                     && map.containsKey(fieldNames[FIELD_ITEMS])) {
                 ChangeSet changeSet = createChangeSet(map.get(fieldNames[FIELD_ITEMS]), map.get(fieldNames[FIELD_CHANGESET]), map.get(fieldNames[FIELD_USER]), map.get(fieldNames[FIELD_DATE]), map.get(fieldNames[FIELD_COMMENT]));
@@ -172,7 +174,7 @@ public class DetailedHistoryCommand extends AbstractCommand implements Parseable
         if (m.find()) {
             String revision = m.group(1);
             String userName = m.group(2).trim();
-            
+
             // Remove the indentation from the comment
             String comment = m.group(4).replaceAll("\n  ", "\n");
             if (comment.length() > 0) {
@@ -219,12 +221,12 @@ public class DetailedHistoryCommand extends AbstractCommand implements Parseable
 		}
 		return changeset;
 	}
-	
+
 	/**
 	 * Class for extracing one change set segment out of a long list of change sets.
 	 */
 	private static class ChangeSetStringReader {
-		
+
 		private static final Pattern PATTERN_KEYWORD = Pattern.compile("\\w+:");
         private final BufferedReader reader;
 		private boolean foundAtLeastOneChangeSet;
@@ -233,7 +235,7 @@ public class DetailedHistoryCommand extends AbstractCommand implements Parseable
 			super();
 			this.reader = reader;
 		}
-		
+
         public String readChangeSet() throws IOException {
             StringBuilder builder = new StringBuilder();
             String line;
